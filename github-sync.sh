@@ -11,11 +11,25 @@ GITHUB_USERNAME="ronilson-users"
 REPO_NAME="agent-ia-acode"
 PROJECT_DIR="/data/data/com.termux/files/home/Continua/agent-ia-acode"
 
+# =====================================
+# 🔍 Verificações Iniciais
+# =====================================
+echo "🔍 Verificando ambiente..."
+
+# Verificar se há internet
+if ! ping -c 1 github.com >/dev/null 2>&1; then
+    echo "❌ Sem conexão com a internet"
+    exit 1
+fi
+
 # Ir para o diretório
 cd "$PROJECT_DIR" || { 
     echo "❌ Diretório não encontrado: $PROJECT_DIR" 
     exit 1 
 }
+
+echo "📁 Diretório: $(pwd)"
+echo "🚀 Iniciando sincronização: $REPO_NAME"
 
 # =====================================
 # 🔐 Gerenciamento SEGURO do Token
@@ -40,6 +54,9 @@ fi
 # =====================================
 # ⚙️ Configurar Git
 # =====================================
+
+echo "⚙️ Configurando Git..."
+
 if [ ! -d .git ]; then
     git init
 fi
@@ -50,6 +67,8 @@ fi
 
 git config user.name "$GITHUB_USERNAME"
 git config user.email "$GITHUB_EMAIL"
+
+echo "✅ Git configurado."
 
 # =====================================
 # 📋 Garantir .gitignore
@@ -85,6 +104,21 @@ fi
 # 🗂️ Adicionar arquivos (EXCLUINDO .env)
 # =====================================
 echo "💾 Adicionando arquivos seguros..."
+
+# =====================================
+# 📝 Criar repositório no GitHub se não existir
+# =====================================
+echo "🔍 Verificando repositório no GitHub..."
+if ! curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME} | grep -q '"name"'; then
+    echo "🆕 Criando repositório no GitHub..."
+    curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+         -H "Accept: application/vnd.github.v3+json" \
+         https://api.github.com/user/repos \
+         -d "{\"name\":\"$REPO_NAME\", \"private\":false, \"auto_init\":false}"
+    echo "✅ Repositório criado: $REPO_NAME"
+    sleep 2  # Aguardar criação
+fi
+
 
 # Remover .env se já estiver no git
 git rm --cached .env 2>/dev/null || true
@@ -134,8 +168,28 @@ if ! git diff --cached --quiet; then
     
     echo "✅ Sincronização concluída com segurança!"
 else
-    echo "✅ Nada para sincronizar."
+    echo "❌ Push falhou. Verifique:"
+    echo "   - Permissões do token"
+    echo "   - Conflitos no repositório"
+    echo "   - Conexão com a internet"
+    exit 1
 fi
+
+# =====================================
+# 🧹 Limpeza
+# =====================================
+# Remover header de autenticação
+git config --local --unset http.https://github.com/.extraheader
 
 # Limpar token da memória
 unset GITHUB_TOKEN
+
+echo ""
+echo "===================================="
+echo "🎉 SINCRONIZAÇÃO CONCLUÍDA!"
+echo "===================================="
+echo "🌍 Repositório: https://github.com/${GITHUB_USERNAME}/${REPO_NAME}"
+echo "🌿 Branch: $CURRENT_BRANCH"
+echo "📊 Status: https://github.com/${GITHUB_USERNAME}/${REPO_NAME}/commits/$CURRENT_BRANCH"
+echo "⏰ Sincronizado em: $(date '+%d/%m/%Y %H:%M')"
+echo "===================================="

@@ -1,0 +1,40 @@
+name: Deploy Acode Plugin
+
+on:
+  push:
+    tags: ['v*']  # Se ejecuta cuando creas un tag
+  workflow_dispatch:  # Permite ejecución manual
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Validar plugin.json
+      run: |
+        if ! [ -f "plugin.json" ]; then
+          echo "❌ Error: plugin.json no encontrado"
+          exit 1
+        fi
+        
+        # Validar estructura básica
+        echo "Validando plugin.json..."
+        # Aquí puedes añadir validaciones específicas
+        
+    - name: Crear archivo ZIP del plugin
+      run: |
+        PLUGIN_NAME=$(node -p "require('./plugin.json').name")
+        VERSION=$(node -p "require('./plugin.json').version")
+        zip -r "$PLUGIN_NAME-v$VERSION.zip" . -x "*.git*" "*.github*" "node_modules/*"
+        echo "ZIP_FILE=$PLUGIN_NAME-v$VERSION.zip" >> $GITHUB_ENV
+        
+    - name: Subir Release a GitHub
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ env.ZIP_FILE }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
